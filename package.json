@@ -1,0 +1,28 @@
+{
+  "name": "mcp-cheat-engine",
+  "version": "0.1.0",
+  "description": "MCP server that lets AI assistants drive Cheat Engine — memory scanning, reading, writing, disassembly, and more",
+  "type": "module",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Travers9483/mcp-cheat-engine.git"
+  },
+  "keywords": ["mcp", "cheat-engine", "reverse-engineering", "memory-scanning", "ai-tools"],
+  "bin": {
+    "mcp-cheat-engine": "dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "dev": "tsc --watch"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.4",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/node": "^20.12.7",
+    "typescript": "^5.5.4"
+  }
+}

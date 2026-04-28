@@ -1,0 +1,12 @@
+{
+  "servers": {
+    "cheat-engine": {
+      "type": "stdio",
+      "command": "node",
+      "args": ["${workspaceFolder}/dist/index.js"],
+      "env": {
+        "CE_BRIDGE_PORT": "5874"
+      }
+    }
+  }
+}
