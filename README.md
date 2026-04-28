@@ -1,51 +1,38 @@
-# mcp-cheat-engine
+# re-mcp
 
-> Let your AI assistant drive **Cheat Engine** — scan memory, read/write values, disassemble code, manage the cheat table, and more — all through natural language.
+> **One MCP server. Every RE tool. One conversation.**
 
-<br>
+Let your AI assistant drive **Cheat Engine**, **x64dbg**, and **Ghidra** — scan memory, debug processes, decompile functions, and more — all through natural language.
 
 ```
-┌─────────────────────┐        MCP / stdio        ┌─────────────────────┐       HTTP poll       ┌──────────────────┐
-│   AI Assistant      │ ◄─────────────────────────►│  Node.js MCP Server │◄─────────────────────►│   Cheat Engine   │
-│  (Copilot / Claude) │                            │   localhost:5874    │                       │   (Lua bridge)   │
-└─────────────────────┘                            └─────────────────────┘                       └──────────────────┘
+AI Assistant ── MCP / stdio ──► re-mcp (Node.js) ──┬── HTTP poll ──► Cheat Engine  (Lua bridge)
+  (Copilot / Claude)                                ├── HTTP poll ──► x64dbg       (Python bridge)
+                                                    └── HTTP poll ──► Ghidra       (Python bridge)
 ```
 
-This is an [MCP (Model Context Protocol)](https://modelcontextprotocol.io/) server that exposes Cheat Engine's full feature set as AI-callable tools. Works with any MCP-compatible client — **GitHub Copilot Chat** in VS Code, **Claude Desktop**, or any other MCP host.
+This is a [Model Context Protocol](https://modelcontextprotocol.io) (MCP) server that exposes the full feature set of multiple reverse engineering tools as AI-callable tools. Works with any MCP-compatible client — **GitHub Copilot Chat** in VS Code, **Claude Desktop**, or any other MCP host.
+
+## Why re-mcp?
+
+Every existing MCP project for RE tools is **tool-specific** — separate repos, separate installs, separate configs. `re-mcp` is the first **unified** server:
+
+- **One install** — one `npm install` gives you access to all backends
+- **Cross-tool workflows** — find an address in Cheat Engine, hit a breakpoint in x64dbg, decompile in Ghidra
+- **Consistent architecture** — every bridge uses the same HTTP poll protocol
+- **Modular** — only start the tools you need; each bridge connects independently
 
 ---
 
 ## Features
 
-20 tools available to the AI, covering the complete Cheat Engine workflow:
+**55+ tools** available to the AI, covering the complete reverse engineering workflow:
 
-| Category | Tools | What they do |
-|---|---|---|
-| **Diagnostics** | `ce_status` | Check bridge connection & attached process |
-| **Process** | `ce_list_processes`, `ce_attach_process` | Find and open a target process |
-| **Memory** | `ce_read_memory`, `ce_write_memory` | Read/write typed values (int32, float, string, etc.) |
-| **Raw Bytes** | `ce_read_bytes`, `ce_write_bytes` | Hex dump & patch (like the Memory Viewer) |
-| **Scanning** | `ce_scan_first`, `ce_scan_next`, `ce_scan_results`, `ce_scan_reset` | Full memory scan workflow |
-| **Disassembly** | `ce_disassemble` | Read instructions (like the Disassembler window) |
-| **Cheat Table** | `ce_list_entries`, `ce_add_entry`, `ce_set_entry_value`, `ce_freeze_entry` | Manage the address list |
-| **Scripting** | `ce_auto_assemble` | Run Auto Assembler scripts (hooks, NOPs, code caves) |
-| **Symbols** | `ce_resolve_symbol` | Resolve `game.exe+1A2B` → absolute address |
-| **Speed Hack** | `ce_set_speedhack` | Change game speed (0.5× / 2× / etc.) |
-| **UI** | `ce_list_windows`, `ce_inspect_form`, `ce_get_control`, `ce_set_control`, `ce_click_control` | Inspect & automate CE's own UI |
-| **Escape Hatch** | `ce_eval_lua` | Execute arbitrary Lua inside Cheat Engine |
-
----
-
-## Prerequisites
-
-| Requirement | Version | Link |
-|---|---|---|
-| **Node.js** | 20 or newer (LTS recommended) | [nodejs.org/en/download](https://nodejs.org/en/download) |
-| **Cheat Engine** | 7.5 or newer | [cheatengine.org](https://www.cheatengine.org/) |
-| **VS Code** | Latest | [code.visualstudio.com](https://code.visualstudio.com/) |
-| **GitHub Copilot Chat** | Extension installed & signed in | [Marketplace](https://marketplace.visualstudio.com/items?itemName=GitHub.copilot-chat) |
-
-> **Other MCP hosts** (e.g. Claude Desktop) also work — you just need to point them at `dist/index.js` via stdio. The setup below focuses on VS Code + Copilot since that's the most common configuration.
+| Category | Prefix | Tools | What they do |
+|---|---|---|---|
+| **Cheat Engine** | `ce_*` | 22 tools | Memory scanning, read/write, disassembly, address list, speed hack, auto-assembler, Lua eval |
+| **x64dbg** | `x64_*` | 22 tools | Process attach, breakpoints, stepping, registers, memory, disassembly, modules, stack trace, labels, comments |
+| **Ghidra** | `ghidra_*` | 12 tools | Function listing, decompilation, disassembly, cross-references, renaming, comments, strings, imports/exports, segments |
+| **Unified** | `re_*` | 1 tool | `re_status` — shows which backends are connected |
 
 ---
 
@@ -60,292 +47,244 @@ npm install
 npm run build
 ```
 
-This compiles the TypeScript source into `dist/index.js`.
+### 2. Configure your AI client
 
-### 2. Open in VS Code
+<details>
+<summary><strong>VS Code (GitHub Copilot Chat)</strong></summary>
 
-Open the `mcp-cheat-engine` folder in VS Code. The included `.vscode/mcp.json` automatically registers the MCP server for this workspace.
+The repo includes `.vscode/mcp.json` — it works automatically when you open the project.
 
-Reload the window to pick it up:
-
-> `Ctrl+Shift+P` → **Developer: Reload Window**
-
-### 3. Verify the server is registered
-
-1. Open **Copilot Chat** (right sidebar).
-2. Switch the mode dropdown to **Agent**.
-3. Click the **tools/wrench icon** — you should see **`cheat-engine`** listed with all `ce_*` tools.
-
-### 4. Start Cheat Engine & load the bridge
-
-1. Open Cheat Engine.
-2. Press **`Ctrl+Alt+L`** (or **Table → Show Cheat Table Lua Script**).
-3. Open `ce-lua/bridge.lua` from this project, select all (`Ctrl+A`), copy (`Ctrl+C`).
-4. Paste into the CE Lua script window, then click **Execute script**.
-5. The console (bottom pane) should print:
-
-```
-[MCP] Hello OK from http://127.0.0.1:5874/
-[MCP] Bridge ready. Methods: add_entry, attach, auto_assemble, ...
-```
-
-> **Important:** The MCP server must be running *before* you execute the Lua script. Ask Copilot anything CE-related first (e.g. *"check ce_status"*) to trigger VS Code to launch the server.
-
-### 5. Start chatting
-
-In Copilot Chat (Agent mode), try:
-
-```
-Check ce_status.
-```
-
-If it says `connected: true` — you're good to go.
-
----
-
-## Usage Examples
-
-Here's a typical workflow using Cheat Engine's bundled tutorial (`Help → Cheat Engine Tutorial`):
-
-```
-You:    "List processes that contain 'Tutorial'."
-AI:     → calls ce_list_processes, filters results
-        Found: Tutorial-x86_64.exe (PID 12345)
-
-You:    "Attach to that."
-AI:     → calls ce_attach_process
-        Attached to Tutorial-x86_64.exe
-
-You:    "Scan for int32 value 100."
-AI:     → calls ce_scan_first
-        Found 48,291 results.
-
-        (You click "Hit me" in the tutorial — health drops to 95)
-
-You:    "Narrow the scan to 95."
-AI:     → calls ce_scan_next
-        3 results remaining.
-
-You:    "Show results."
-AI:     → calls ce_scan_results
-        0x00ABC123 = 95
-
-You:    "Add that to the cheat table as 'Health' and freeze it at 5000."
-AI:     → calls ce_add_entry, ce_set_entry_value, ce_freeze_entry
-        Done. Health frozen at 5000.
-
-You:    "Disassemble 20 instructions at the address that wrote to Health."
-AI:     → calls ce_disassemble
-        (shows assembly listing)
-```
-
----
-
-## Detailed Setup Guide
-
-> New to Node.js, MCP, or Cheat Engine? This section walks through everything step by step.
-
-### Installing Node.js
-
-1. Go to [nodejs.org/en/download](https://nodejs.org/en/download).
-2. Download the **Windows Installer (.msi) — LTS** version.
-3. Run the installer — click **Next** through everything, accept defaults.
-4. Open a **new** PowerShell window and verify:
-
-```powershell
-node --version
-# Expected: v20.x.x or higher
-```
-
-If you see *"command not found"*, restart your PC and try again.
-
-### Installing Cheat Engine
-
-1. Download from [cheatengine.org](https://www.cheatengine.org/).
-2. Run the installer. **Decline** all bundled offers (AVG, etc.) — choose **Custom install** and untick everything.
-3. Open Cheat Engine → **Help → About** → confirm version **7.5+**.
-
-### Setting up Copilot Chat
-
-1. In VS Code, open **Extensions** (left sidebar).
-2. Search for **GitHub Copilot Chat** → **Install**.
-3. Click the chat icon in the right sidebar, sign in if prompted.
-4. Change the mode dropdown at the bottom from *Ask* to **Agent** — this is what enables tool calling.
-
-### Building the server
-
-```powershell
-cd path/to/mcp-cheat-engine
-npm install      # downloads dependencies (~10 MB)
-npm run build    # compiles TypeScript → dist/
-```
-
-You only need to rebuild after changing TypeScript source files. The Lua bridge (`ce-lua/bridge.lua`) doesn't need compilation.
-
-### Loading the Lua bridge
-
-Every time you restart Cheat Engine, you need to reload the bridge:
-
-1. In Copilot Chat, ask anything CE-related to ensure the MCP server is running.
-2. In Cheat Engine: **`Ctrl+Alt+L`** → paste `bridge.lua` → **Execute script**.
-3. Check the console for `[MCP] Bridge ready`.
-
-> **Tip:** Save the bridge as a `.CT` cheat table (**File → Save** in CE) to auto-load it next time.
-
----
-
-## Configuration
-
-The server accepts configuration via environment variables:
-
-| Variable | Default | Description |
-|---|---|---|
-| `CE_BRIDGE_PORT` | `5874` | Port for the HTTP bridge between Node.js and CE |
-| `CE_BRIDGE_HOST` | `127.0.0.1` | Host to bind the HTTP server on |
-
-These are set in `.vscode/mcp.json` for the VS Code integration, or can be passed as environment variables when running manually:
-
-```powershell
-$env:CE_BRIDGE_PORT = "5874"
-node dist/index.js
-```
-
----
-
-## How It Works
-
-### Architecture
-
-The system has three layers:
-
-1. **AI Client** (Copilot / Claude) — sends tool calls via MCP protocol over stdio
-2. **Node.js MCP Server** — translates tool calls into commands, hosts an HTTP endpoint for CE to poll
-3. **Cheat Engine Lua Bridge** — polls the HTTP endpoint every 250ms, executes commands using CE's Lua API, posts results back
-
-### Communication Flow
-
-```
-1. User asks Copilot: "Scan for value 100"
-2. Copilot calls tool: ce_scan_first({ type: "int32", value: 100 })
-3. MCP Server receives the call via stdio, queues it as a pending command
-4. CE Lua bridge polls HTTP endpoint, receives the command
-5. Lua bridge calls CE's firstScan() API
-6. Lua bridge POSTs the result back to the HTTP endpoint
-7. MCP Server resolves the pending promise, returns result to Copilot
-8. Copilot tells the user: "Found 48,291 results"
-```
-
-### Why HTTP Polling?
-
-Cheat Engine's Lua environment doesn't include `LuaSocket` by default, so raw TCP isn't available out of the box. However, CE does ship `getInternet()` which provides synchronous HTTP. The bridge uses HTTP POST polling with a 250ms long-poll window — low latency without hammering CE's UI thread.
-
----
-
-## Using with Other MCP Clients
-
-### Claude Desktop
-
-Add to your Claude Desktop MCP config (`claude_desktop_config.json`):
+Or add to your user-level `settings.json`:
 
 ```json
-{
-  "mcpServers": {
-    "cheat-engine": {
+"mcp": {
+  "servers": {
+    "re-mcp": {
+      "type": "stdio",
       "command": "node",
-      "args": ["C:/path/to/mcp-cheat-engine/dist/index.js"],
+      "args": ["C:/path/to/re-mcp/dist/index.js"],
       "env": {
-        "CE_BRIDGE_PORT": "5874"
+        "CE_BRIDGE_PORT": "5874",
+        "X64_BRIDGE_PORT": "5875",
+        "GHIDRA_BRIDGE_PORT": "5876"
       }
     }
   }
 }
 ```
+</details>
 
-### Any MCP Client
+<details>
+<summary><strong>Claude Desktop</strong></summary>
 
-The server uses **stdio** transport. Launch it with:
+Edit `claude_desktop_config.json`:
 
-```powershell
-node dist/index.js
+```json
+{
+  "mcpServers": {
+    "re-mcp": {
+      "command": "node",
+      "args": ["C:/path/to/re-mcp/dist/index.js"],
+      "env": {
+        "CE_BRIDGE_PORT": "5874",
+        "X64_BRIDGE_PORT": "5875",
+        "GHIDRA_BRIDGE_PORT": "5876"
+      }
+    }
+  }
+}
 ```
+</details>
 
-It reads JSON-RPC from stdin and writes to stdout, following the [MCP specification](https://modelcontextprotocol.io/).
+### 3. Connect your tools
+
+Each tool needs its bridge script running. You only need to start the tools you want to use:
+
+#### Cheat Engine
+1. Open Cheat Engine
+2. Press **Ctrl + Alt + L** to open the Lua console
+3. Paste the contents of `bridges/cheat-engine/bridge.lua`
+4. Click **Execute script**
+
+#### x64dbg
+1. Open x64dbg
+2. Ensure the Python plugin (`x64dbgpy`) is installed
+3. Load `bridges/x64dbg/bridge.py` via the Script tab
+
+#### Ghidra
+1. Open Ghidra and load a binary in the CodeBrowser
+2. Open **Script Manager** (Window → Script Manager)
+3. Run `bridges/ghidra/bridge.py`
+
+### 4. Start talking
+
+Once the MCP server is active and at least one bridge is connected:
+
+```
+You: "What tools are connected?"
+AI:  → calls re_status → "Cheat Engine and Ghidra are connected"
+
+You: "List all functions containing 'Player' in Ghidra"
+AI:  → calls ghidra_list_functions with filter "Player"
+
+You: "Decompile the PlayerHealth function"
+AI:  → calls ghidra_decompile
+
+You: "Scan for the value 100 in Cheat Engine"
+AI:  → calls ce_scan_first with value 100
+```
 
 ---
 
-## Troubleshooting
+## Architecture
 
-| Symptom | Cause | Fix |
+### How it works
+
+`re-mcp` runs as a single Node.js process that:
+
+1. Connects to your AI client via **MCP over stdio**
+2. Opens **three HTTP servers** (one per backend) on localhost
+3. Each tool's bridge script **polls** its HTTP server for commands
+4. Results flow back through the same HTTP channel
+
+```
+┌─────────────┐     stdio      ┌──────────────────────────────────────────┐
+│ AI Assistant │ ◄════════════► │              re-mcp (Node.js)            │
+│ (Copilot,    │    MCP JSON    │                                          │
+│  Claude)     │                │  ┌──────────┐ ┌──────────┐ ┌──────────┐ │
+└─────────────┘                │  │ CE Bridge │ │ x64 Brg  │ │ Ghidra   │ │
+                               │  │ :5874     │ │ :5875    │ │ :5876    │ │
+                               │  └────┬─────┘ └────┬─────┘ └────┬─────┘ │
+                               └───────┼────────────┼────────────┼────────┘
+                                       │ HTTP poll  │ HTTP poll  │ HTTP poll
+                                 ┌─────▼─────┐ ┌───▼──────┐ ┌──▼───────┐
+                                 │   Cheat    │ │  x64dbg  │ │  Ghidra  │
+                                 │   Engine   │ │          │ │          │
+                                 │  (Lua)     │ │ (Python) │ │ (Python) │
+                                 └────────────┘ └──────────┘ └──────────┘
+```
+
+### Bridge protocol
+
+All bridges use the same simple HTTP protocol:
+
+| Action | Direction | Payload |
 |---|---|---|
-| *"Cheat Engine bridge is not connected"* | CE hasn't loaded the bridge script | In CE: `Ctrl+Alt+L` → paste `bridge.lua` → **Execute script**. Check console for `[MCP] Hello OK`. |
-| *"cannot reach http://127.0.0.1:5874/"* in CE | MCP server isn't running | Ask Copilot any `ce_*` question to spawn it, or run `npm start` manually. |
-| *"getInternet() returned nil"* in CE | CE build missing internet object | Reinstall Cheat Engine 7.5+ from [cheatengine.org](https://www.cheatengine.org/). |
-| `ce_*` tools not visible in Copilot | VS Code didn't discover `mcp.json` | `Ctrl+Shift+P` → **Developer: Reload Window**. Ensure you're in **Agent** mode. |
-| Tool calls hang / timeout after 15s | Lua script crashed in CE | Re-execute the Lua script. Restart CE if needed. |
-| Scans are very slow | Large address space, broad search | Use a specific value type (`int32`, `float`) and `scanOption: exact`. |
-| `npm install` fails | Node.js not installed or wrong version | Run `node --version` — must be 20+. Delete `node_modules` and `package-lock.json`, retry. |
-| Permission prompt on every tool call | Copilot asking for confirmation | Click **Always allow** instead of **Allow**. |
+| `hello` | Bridge → Server | `{ action: "hello" }` |
+| `poll` | Bridge → Server | `{ action: "poll" }` → `{ id, method, params }` |
+| `reply` | Bridge → Server | `{ action: "reply", id, result }` |
 
 ---
 
-## Daily Workflow
+## Configuration
 
-Once set up, your everyday process is:
+All settings are via environment variables:
 
-1. **Open VS Code** at the project folder.
-2. **Open Cheat Engine** → `Ctrl+Alt+L` → Execute `bridge.lua`.
-3. **Open your target** (game, tutorial, etc.).
-4. **Chat with your AI** in Agent mode.
-
-That's it.
-
----
-
-## Project Structure
-
-```
-mcp-cheat-engine/
-├── src/
-│   ├── index.ts        # Entry point — creates MCP server & bridge
-│   ├── ceBridge.ts     # HTTP transport (Node ↔ CE communication)
-│   └── tools.ts        # All 20 MCP tool definitions
-├── ce-lua/
-│   └── bridge.lua      # Lua script to load into Cheat Engine
-├── .vscode/
-│   └── mcp.json        # Auto-registers server for VS Code
-├── package.json
-├── tsconfig.json
-└── LICENSE
-```
+| Variable | Default | Description |
+|---|---|---|
+| `CE_BRIDGE_PORT` | `5874` | HTTP port for Cheat Engine bridge |
+| `X64_BRIDGE_PORT` | `5875` | HTTP port for x64dbg bridge |
+| `GHIDRA_BRIDGE_PORT` | `5876` | HTTP port for Ghidra bridge |
+| `RE_BRIDGE_HOST` | `127.0.0.1` | Bind address for all bridges |
 
 ---
 
-## Safety & Ethics
+## Tool Reference
 
-- ⚠️ **Single-player / offline use only.** Using memory modification tools on multiplayer or online games violates Terms of Service and can result in bans. Don't do it.
-- 🔒 **Local only.** The bridge listens on `127.0.0.1` — nothing is exposed to the network.
-- 🧠 **Be cautious with writes.** Memory writes (`ce_write_memory`, `ce_auto_assemble`) can crash the target process. Instruct the AI to **describe changes before performing them**.
-- 📚 **Educational tool.** This project is intended for learning reverse engineering concepts on safe targets like Cheat Engine's bundled tutorial.
+### Unified Tools
+| Tool | Description |
+|---|---|
+| `re_status` | Show connection status for all backends |
+
+### Cheat Engine Tools (`ce_*`)
+| Tool | Description |
+|---|---|
+| `ce_status` | Connection status and attached process info |
+| `ce_list_processes` | List all visible processes |
+| `ce_attach_process` | Attach to a process by PID or name |
+| `ce_read_memory` | Read a typed value from memory |
+| `ce_write_memory` | Write a typed value to memory |
+| `ce_read_bytes` | Read raw hex bytes |
+| `ce_write_bytes` | Write raw hex bytes |
+| `ce_disassemble` | Disassemble instructions at address |
+| `ce_scan_first` | Start a new memory scan |
+| `ce_scan_next` | Narrow the current scan |
+| `ce_scan_results` | Get results from current scan |
+| `ce_scan_reset` | Reset the scan state |
+| `ce_list_entries` | List address-list entries |
+| `ce_add_entry` | Add an entry to the address list |
+| `ce_set_entry_value` | Set value of an address-list entry |
+| `ce_freeze_entry` | Freeze/unfreeze an entry |
+| `ce_auto_assemble` | Run Auto-Assembler script |
+| `ce_resolve_symbol` | Resolve a symbol to absolute address |
+| `ce_set_speedhack` | Enable speed hack |
+| `ce_list_windows` | List CE's open windows |
+| `ce_inspect_form` | Dump a CE form's control tree |
+| `ce_get_control` / `ce_set_control` / `ce_click_control` | UI automation |
+| `ce_eval_lua` | Execute arbitrary Lua code |
+
+### x64dbg Tools (`x64_*`)
+| Tool | Description |
+|---|---|
+| `x64_status` | Connection status and debuggee info |
+| `x64_open` | Open an executable for debugging |
+| `x64_attach` | Attach to a process by PID |
+| `x64_detach` | Detach from process |
+| `x64_run` / `x64_pause` | Resume or pause execution |
+| `x64_step_into` / `x64_step_over` / `x64_step_out` | Stepping |
+| `x64_get_registers` / `x64_set_register` | Register access |
+| `x64_read_memory` / `x64_write_memory` | Memory access |
+| `x64_disassemble` | Disassemble at address |
+| `x64_set_breakpoint` / `x64_remove_breakpoint` / `x64_list_breakpoints` | Breakpoint management |
+| `x64_modules` | List loaded modules/DLLs |
+| `x64_stack_trace` | Get call stack |
+| `x64_add_comment` / `x64_add_label` | Annotations |
+| `x64_command` | Execute arbitrary x64dbg command |
+
+### Ghidra Tools (`ghidra_*`)
+| Tool | Description |
+|---|---|
+| `ghidra_status` | Connection status and loaded program info |
+| `ghidra_list_functions` | List all functions (with filter) |
+| `ghidra_decompile` | Decompile a function to C pseudocode |
+| `ghidra_disassemble` | Disassemble at address |
+| `ghidra_get_xrefs_to` / `ghidra_get_xrefs_from` | Cross-references |
+| `ghidra_rename` | Rename function or symbol |
+| `ghidra_add_comment` | Add comment at address |
+| `ghidra_list_strings` | List defined strings |
+| `ghidra_list_imports` / `ghidra_list_exports` | Import/export tables |
+| `ghidra_list_segments` | List memory segments |
+| `ghidra_eval` | Execute arbitrary Python in Ghidra |
+
+---
+
+## Roadmap
+
+- [x] **Cheat Engine** — Live memory scanning, read/write, disassembly
+- [x] **x64dbg** — Live debugging, breakpoints, stepping, registers
+- [x] **Ghidra** — Static analysis, decompilation, cross-references
+- [ ] **IDA Pro** — Static analysis (IDAPython bridge)
+- [ ] **ReClass.NET** — Structure/class editing
+
+---
+
+## How it compares
+
+| Feature | re-mcp | BinaryAnalysisMCPs | x64dbg-automate | ghidra-mcp |
+|---|---|---|---|---|
+| Unified server | ✅ One install | ❌ 3 separate servers | ❌ x64dbg only | ❌ Ghidra only |
+| Cheat Engine | ✅ | ❌ | ❌ | ❌ |
+| x64dbg | ✅ | ✅ | ✅ | ❌ |
+| Ghidra | ✅ | ❌ | ❌ | ✅ |
+| Cross-tool workflows | ✅ | ❌ | ❌ | ❌ |
+| Language | TypeScript | Python | Python/C++ | Java/Python |
+| AI client support | Any MCP client | Any MCP client | Any MCP client | Any MCP client |
 
 ---
 
 ## Contributing
 
-Contributions are welcome! Some ideas:
-
-- **New tools** — "Find what writes to this address", breakpoints, structure dissection
-- **CE plugin mode** — Auto-load the bridge without manual paste
-- **Cross-platform** — Test on Linux/macOS (CE has cross-platform builds)
-
-```powershell
-# Development workflow
-npm install
-npm run dev     # watches & recompiles TypeScript on save
-```
-
-After changing TypeScript: restart the MCP server in VS Code (`Ctrl+Shift+P` → **MCP: List Servers** → `cheat-engine` → **Restart**), then re-execute `bridge.lua` in CE.
-
----
+PRs, bug reports, and new bridge implementations are welcome! If you've built a bridge for another tool (IDA Pro, Binary Ninja, Frida, etc.), we'd love to integrate it.
 
 ## License
 

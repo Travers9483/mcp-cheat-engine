@@ -1,11 +1,13 @@
 {
   "servers": {
-    "cheat-engine": {
+    "re-mcp": {
       "type": "stdio",
       "command": "node",
       "args": ["${workspaceFolder}/dist/index.js"],
       "env": {
-        "CE_BRIDGE_PORT": "5874"
+        "CE_BRIDGE_PORT": "5874",
+        "X64_BRIDGE_PORT": "5875",
+        "GHIDRA_BRIDGE_PORT": "5876"
       }
     }
   }

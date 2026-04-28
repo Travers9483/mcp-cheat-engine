@@ -10,30 +10,35 @@ interface PendingRequest {
 }
 
 /**
- * HTTP transport bridging the MCP server <-> the CE Lua script.
+ * Base HTTP-poll bridge shared by all tool backends (CE, x64dbg, Ghidra, IDA).
  *
- * Why HTTP? Cheat Engine's bundled Lua doesn't include LuaSocket as `require"socket"`,
- * but it does ship `getInternet()` which gives us synchronous HTTP. We host a tiny
- * server on 127.0.0.1:<port> that the CE side polls.
+ * Each tool's bridge script (Lua, Python, etc.) polls this HTTP server for
+ * commands and posts results back. The protocol is identical across all tools:
  *
- * Single endpoint, POST /:
- *   {"action":"hello"}                  -> {"ok":true}
- *   {"action":"poll"}                   -> {} (idle) or {id, method, params}
- *   {"action":"reply", id, result|error}-> {"ok":true}
- *
- * Long-poll: poll waits up to ~2s for a pending command before returning empty.
+ *   POST / { action: "hello" }                    → { ok: true }
+ *   POST / { action: "poll" }                     → {} | { id, method, params }
+ *   POST / { action: "reply", id, result|error }  → { ok: true }
  */
-export class CeBridge {
+export class BaseBridge {
   private server: http.Server;
   private pending = new Map<number, PendingRequest>();
   private queue: number[] = [];
   private waiters: Array<(id: number | null) => void> = [];
   private nextId = 1;
   private bridgeLastSeen = 0;
-  private readonly defaultTimeoutMs = 15_000;
+  private readonly defaultTimeoutMs: number;
   private readonly pollWaitMs = 250;
 
-  constructor(private readonly host = "127.0.0.1", private readonly port = 5874) {
+  readonly name: string;
+
+  constructor(
+    name: string,
+    private readonly host = "127.0.0.1",
+    private readonly port = 5874,
+    defaultTimeoutMs = 15_000,
+  ) {
+    this.name = name;
+    this.defaultTimeoutMs = defaultTimeoutMs;
     this.server = http.createServer((req, res) => this.handle(req, res));
   }
 
@@ -42,13 +47,13 @@ export class CeBridge {
       this.server.once("error", reject);
       this.server.listen(this.port, this.host, () => {
         this.server.off("error", reject);
-        console.error(`[ce-bridge] HTTP listening on ${this.host}:${this.port}`);
+        console.error(`[${this.name}] HTTP listening on ${this.host}:${this.port}`);
         resolve();
       });
     });
   }
 
-  /** Bridge is "connected" if CE polled within the last 5 s. */
+  /** Bridge is "connected" if the tool polled within the last 5 s. */
   isConnected(): boolean {
     return Date.now() - this.bridgeLastSeen < 5_000;
   }
@@ -56,15 +61,13 @@ export class CeBridge {
   call(method: string, params: Record<string, unknown> = {}, timeoutMs?: number): Promise<unknown> {
     if (!this.isConnected()) {
       return Promise.reject(
-        new Error(
-          "Cheat Engine bridge is not connected. In Cheat Engine open Table → Show Cheat Table Lua Script (Ctrl+Alt+L), paste ce-lua/bridge.lua, and click Execute script.",
-        ),
+        new Error(`${this.name} bridge is not connected. Load the bridge script in the tool and click Execute.`),
       );
     }
     const id = this.nextId++;
     return new Promise((resolve, reject) => {
       const timer = setTimeout(() => {
-        if (this.pending.delete(id)) reject(new Error(`CE call '${method}' timed out`));
+        if (this.pending.delete(id)) reject(new Error(`${this.name} call '${method}' timed out`));
       }, timeoutMs ?? this.defaultTimeoutMs);
       this.pending.set(id, { id, method, params, resolve, reject, timer });
       this.queue.push(id);
@@ -119,7 +122,7 @@ export class CeBridge {
     const action = msg.action;
 
     if (action === "hello") {
-      console.error("[ce-bridge] CE bridge connected (hello)");
+      console.error(`[${this.name}] bridge connected (hello)`);
       return this.respondJson(res, { ok: true });
     }
 

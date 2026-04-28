@@ -1,16 +1,28 @@
 {
-  "name": "mcp-cheat-engine",
-  "version": "0.1.0",
-  "description": "MCP server that lets AI assistants drive Cheat Engine — memory scanning, reading, writing, disassembly, and more",
+  "name": "re-mcp",
+  "version": "0.2.0",
+  "description": "Unified MCP server for reverse engineering — drive Cheat Engine, x64dbg, and Ghidra from any AI assistant",
   "type": "module",
   "license": "MIT",
   "repository": {
     "type": "git",
     "url": "https://github.com/Travers9483/mcp-cheat-engine.git"
   },
-  "keywords": ["mcp", "cheat-engine", "reverse-engineering", "memory-scanning", "ai-tools"],
+  "keywords": [
+    "mcp",
+    "reverse-engineering",
+    "cheat-engine",
+    "x64dbg",
+    "ghidra",
+    "ida-pro",
+    "memory-scanning",
+    "debugging",
+    "disassembly",
+    "decompilation",
+    "ai-tools"
+  ],
   "bin": {
-    "mcp-cheat-engine": "dist/index.js"
+    "re-mcp": "dist/index.js"
   },
   "scripts": {
     "build": "tsc",

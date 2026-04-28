@@ -1,12 +1,12 @@
 import { z } from "zod";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { CeBridge } from "./ceBridge.js";
+import { BaseBridge } from "../bridges/baseBridge.js";
 
 /**
  * Registers Cheat-Engine tools on the MCP server. Each tool is a thin wrapper
  * around a method exposed by the Lua bridge running inside CE.
  */
-export function registerTools(server: McpServer, bridge: CeBridge) {
+export function registerCeTools(server: McpServer, bridge: BaseBridge) {
   const wrap = async (fn: () => Promise<unknown>) => {
     try {
       const result = await fn();
@@ -33,7 +33,7 @@ export function registerTools(server: McpServer, bridge: CeBridge) {
         if (!connected) {
           return {
             connected: false,
-            hint: "Open Cheat Engine, press Ctrl+Alt+L, paste ce-lua/bridge.lua, click 'Execute script'.",
+            hint: "Open Cheat Engine, press Ctrl+Alt+L, paste bridges/cheat-engine/bridge.lua, click 'Execute script'.",
           };
         }
         const ping = await bridge.call("ping");
